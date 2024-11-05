@@ -164,11 +164,24 @@ def export_interfaces(directory: str):
 
 
 def import_interfaces(zip_file: str):
-    return getstatusoutput_(f"unzip -jo {zip_file} -d {WIREGUARD_CONFIGS_FOLDER} '*.conf'")[0] == 0
+    zip_name = zip_file.split("/")[-1]
 
+    append_log_line_without_timestamp(f"[##] IMPORTING ZIP {zip_name} START")
+    import_process = getstatusoutput_(f"unzip -jo {zip_file} -d {WIREGUARD_CONFIGS_FOLDER} '*.conf'")
+    append_log_line_without_timestamp(import_process[1])
+    append_log_line_without_timestamp(f"[##] IMPORTING ZIP {zip_name} END")
+ 
+    return import_process[0] == 0
 
 def add_interface(interface: str):
-    return getstatusoutput_(f"cp {interface} {WIREGUARD_CONFIGS_FOLDER}")[0] == 0
+    interface_name = interface.split("/")[-1]
+
+    append_log_line_without_timestamp(f"[##] ADDING INTERFACE {interface_name} START")
+    add_process = getstatusoutput_(f"cp {interface} {WIREGUARD_CONFIGS_FOLDER}")
+    append_log_line_without_timestamp(add_process[1])
+    append_log_line_without_timestamp(f"[##] ADDING INTERFACE {interface_name} END")
+
+    return add_process[0] == 0
 
 
 def new_interface(interface_name: str, interface_config: str):

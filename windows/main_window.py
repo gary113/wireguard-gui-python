@@ -153,7 +153,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
 ### START CUSTOM CODE - CLASS ###
 
-        self.version = 'v1.0'
+        self.version = 'v1.3'
 
         self.START_TIME = datetime.now()
         self.log_file = Path(LOG_FILE)
