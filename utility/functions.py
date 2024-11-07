@@ -22,7 +22,7 @@ def get_interfaces():
 
 
 def get_config_file_content(interface: str):
-    with open(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}", mode='r') as config_file:
+    with open(f'{WIREGUARD_CONFIGS_FOLDER}/{interface}', mode='r') as config_file:
         content = config_file.read()
     interface_content = content[:content.find('[Peer]')].strip()
     peers_content = content[content.find('[Peer]'):].strip()
@@ -63,7 +63,7 @@ def interface_active(interface: str):
 
 
 def interface_exists(interface: str):
-    return getstatusoutput_(f"ls {WIREGUARD_CONFIGS_FOLDER}/{interface}")[0] == 0
+    return getstatusoutput_(f"ls '{WIREGUARD_CONFIGS_FOLDER}/{interface}'")[0] == 0
 
 
 def turn_interface(interface: str):
@@ -138,7 +138,7 @@ def edit_interface(interface: str, new_name: str, old_config: str, new_config: s
             if actived:
                 up_interface(f"{new_name}.conf")
             append_log_line_without_timestamp(
-                f"[###] COPYED INTERFACE {get_interface_name(interface)} => {new_name}")
+                f"[###] COPY INTERFACE {get_interface_name(interface)} => {new_name}")
             delete_interface(interface)
     else:
         write_wireguard_config(interface, old_config)
@@ -153,21 +153,21 @@ def delete_interface(interface: str):
     if interface_active(interface):
         down_interface(interface)
 
-    remove_(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}")
+    remove_(f'{WIREGUARD_CONFIGS_FOLDER}/{interface}')
 
     append_log_line_without_timestamp(
         f"[##] DELETED INTERFACE {get_interface_name(interface)}")
 
 
 def export_interfaces(directory: str):
-    return getstatusoutput_(f"cd {WIREGUARD_CONFIGS_FOLDER} && zip -R {directory}/wireguard_interfaces.zip . '*.conf'")[0] == 0
+    return getstatusoutput_(f"cd '{WIREGUARD_CONFIGS_FOLDER}' && zip -R '{directory}/wireguard_interfaces.zip' . '*.conf'")[0] == 0
 
 
 def import_interfaces(zip_file: str):
     zip_name = zip_file.split("/")[-1]
 
     append_log_line_without_timestamp(f"[##] IMPORTING ZIP {zip_name} START")
-    import_process = getstatusoutput_(f"unzip -jo {zip_file} -d {WIREGUARD_CONFIGS_FOLDER} '*.conf'")
+    import_process = getstatusoutput_(f"unzip -jo '{zip_file}' -d '{WIREGUARD_CONFIGS_FOLDER}' '*.conf'")
     append_log_line_without_timestamp(import_process[1])
     append_log_line_without_timestamp(f"[##] IMPORTING ZIP {zip_name} END")
  
@@ -177,7 +177,7 @@ def add_interface(interface: str):
     interface_name = interface.split("/")[-1]
 
     append_log_line_without_timestamp(f"[##] ADDING INTERFACE {interface_name} START")
-    add_process = getstatusoutput_(f"cp {interface} {WIREGUARD_CONFIGS_FOLDER}")
+    add_process = getstatusoutput_(f"cp '{interface}' '{WIREGUARD_CONFIGS_FOLDER}'")
     append_log_line_without_timestamp(add_process[1])
     append_log_line_without_timestamp(f"[##] ADDING INTERFACE {interface_name} END")
 
@@ -203,7 +203,7 @@ def new_interface(interface_name: str, interface_config: str):
 
 
 def write_wireguard_config(interface: str, config: str):
-    with open(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}", 'w') as interface_file:
+    with open(f'{WIREGUARD_CONFIGS_FOLDER}/{interface}', 'w') as interface_file:
         interface_file.write(config)
 
 
