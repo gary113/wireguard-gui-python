@@ -74,27 +74,27 @@ def turn_interface(interface: str):
 
 
 def down_interface(interface: str):
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[##] TURNING OFF INTERFACE {get_interface_name(interface)} START")
-    append_log_line_with_timestamp(getoutput_(
+    append_log_line_without_timestamp(getoutput_(
         f"unbuffer wg-quick down {get_interface_name(interface)} | ts '{DATETIME_FORMAT} ~'"))
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[##] TURNING OFF INTERFACE {get_interface_name(interface)} END")
 
 
 def up_interface(interface: str):
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[##] TURNING ON INTERFACE {get_interface_name(interface)} START")
-    append_log_line_with_timestamp(getoutput_(
+    append_log_line_without_timestamp(getoutput_(
         f"unbuffer wg-quick up {get_interface_name(interface)} | ts '{DATETIME_FORMAT} ~'"))
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[##] TURNING ON INTERFACE {get_interface_name(interface)} END")
 
     return interface_active(interface)
 
 
 def test_interface(interface: str):
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[###] TESTING INTERFACE {get_interface_name(interface)} START")
 
     actived = interface_active(interface)
@@ -110,14 +110,14 @@ def test_interface(interface: str):
     if not actived and valid_interface:
         down_interface(interface)
 
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[###] TESTING INTERFACE {get_interface_name(interface)} END")
 
     return valid_interface
 
 
 def edit_interface(interface: str, new_name: str, old_config: str, new_config: str):
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[####] EDITING INTERFACE {get_interface_name(interface)} START")
 
     actived = interface_active(interface)
@@ -137,13 +137,13 @@ def edit_interface(interface: str, new_name: str, old_config: str, new_config: s
                 f"cp {WIREGUARD_CONFIGS_FOLDER}/{interface} {WIREGUARD_CONFIGS_FOLDER}/{new_name}.conf".split(' '))
             if actived:
                 up_interface(f"{new_name}.conf")
-            append_log_line_without_timestamp(
+            append_log_line_with_timestamp(
                 f"[###] COPY INTERFACE {get_interface_name(interface)} => {new_name}")
             delete_interface(interface)
     else:
         write_wireguard_config(interface, old_config)
 
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[####] EDITING INTERFACE {get_interface_name(interface)} END")
 
     return valid_interface
@@ -155,38 +155,43 @@ def delete_interface(interface: str):
 
     remove_(f'{WIREGUARD_CONFIGS_FOLDER}/{interface}')
 
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[##] DELETED INTERFACE {get_interface_name(interface)}")
 
 
 def export_interfaces(directory: str):
-    return getstatusoutput_(f"cd '{WIREGUARD_CONFIGS_FOLDER}' && zip -R '{directory}/wireguard_interfaces.zip' . '*.conf'")[0] == 0
+    append_log_line_with_timestamp(f"[##] EXPORTING TO {directory}/wireguard_interfaces.zip START")
+    export_process = getstatusoutput_(f"cd '{WIREGUARD_CONFIGS_FOLDER}' && zip -R '{directory}/wireguard_interfaces.zip' . '*.conf'")
+    append_log_line_with_timestamp(export_process[1])
+    append_log_line_with_timestamp(f"[##] EXPORTING TO {directory}/wireguard_interfaces.zip END")
+
+    return export_process[0] == 0
 
 
 def import_interfaces(zip_file: str):
     zip_name = zip_file.split("/")[-1]
 
-    append_log_line_without_timestamp(f"[##] IMPORTING ZIP {zip_name} START")
+    append_log_line_with_timestamp(f"[##] IMPORTING ZIP {zip_name} START")
     import_process = getstatusoutput_(f"unzip -jo '{zip_file}' -d '{WIREGUARD_CONFIGS_FOLDER}' '*.conf'")
-    append_log_line_without_timestamp(import_process[1])
-    append_log_line_without_timestamp(f"[##] IMPORTING ZIP {zip_name} END")
- 
+    append_log_line_with_timestamp(import_process[1])
+    append_log_line_with_timestamp(f"[##] IMPORTING ZIP {zip_name} END")
+
     return import_process[0] == 0
 
 def add_interface(interface: str):
     interface_name = interface.split("/")[-1]
 
-    append_log_line_without_timestamp(f"[##] ADDING INTERFACE {interface_name} START")
+    append_log_line_with_timestamp(f"[##] ADDING INTERFACE {interface_name} START")
     add_process = getstatusoutput_(f"cp '{interface}' '{WIREGUARD_CONFIGS_FOLDER}'")
-    append_log_line_without_timestamp(add_process[1])
-    append_log_line_without_timestamp(f"[##] ADDING INTERFACE {interface_name} END")
+    append_log_line_with_timestamp(add_process[1])
+    append_log_line_with_timestamp(f"[##] ADDING INTERFACE {interface_name} END")
 
     return add_process[0] == 0
 
 
 def new_interface(interface_name: str, interface_config: str):
     interface_name = interface_name[:15]
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[####] CREATING INTERFACE {interface_name} START")
 
     write_wireguard_config(f"{interface_name}.conf", interface_config)
@@ -196,7 +201,7 @@ def new_interface(interface_name: str, interface_config: str):
     if not valid_interface:
         delete_interface(f"{interface_name}.conf")
 
-    append_log_line_without_timestamp(
+    append_log_line_with_timestamp(
         f"[####] CREATING INTERFACE {interface_name} END")
 
     return valid_interface
@@ -225,12 +230,18 @@ def compare_datetimes(log_line: str, start_datetime:datetime):
         return False
 
 
-def append_log_line_without_timestamp(log_message: str):
-    with open(LOG_FILE, 'a') as log_file:
-        log_file.write(
-            f"{datetime.now().strftime(DATETIME_FORMAT)} ~ {log_message}\n")
-
-
 def append_log_line_with_timestamp(log_message: str):
+    log_messages = log_message.split("\n")
+
     with open(LOG_FILE, 'a') as log_file:
-        log_file.write(f"{log_message}\n")
+        for message in log_messages:
+            log_file.write(
+                f"{datetime.now().strftime(DATETIME_FORMAT)} ~ {message}\n")
+
+
+def append_log_line_without_timestamp(log_message: str):
+    log_messages = log_message.split("\n")
+
+    with open(LOG_FILE, 'a') as log_file:
+        for message in log_messages:
+            log_file.write(f"{log_message}\n")
