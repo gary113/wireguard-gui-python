@@ -65,6 +65,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.listWidget.sizePolicy().hasHeightForWidth())
         self.listWidget.setSizePolicy(sizePolicy2)
         self.listWidget.setDragEnabled(True)
+        self.listWidget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
 
         self.gridLayout.addWidget(self.listWidget, 0, 0, 2, 3)
 
@@ -207,7 +208,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.options_menu.addAction(self.options_menu_import_interfaces)
         self.toolButton.setMenu(self.options_menu)
 
-        self.listWidget.setDragEnabled(True)
+        self.listWidget.setDragEnabled(False)
         self.listWidget.addItems(get_interfaces())
         self.listWidget.itemSelectionChanged.connect(self.list_widget_selected)
         self.listWidget.doubleClicked.connect(self.toolButton_4.click)
@@ -447,16 +448,17 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.Icon.Critical, 'Error', 'You have to select an interface').exec()
 
     def delete_button_click(self):
-        current_item = self.listWidget.currentItem()
-        if current_item != None:
+        selected_items = self.listWidget.selectedItems()
+        if selected_items:
             reply = QtWidgets.QMessageBox.question(self,
-                                                   "Confirm deleting",
-                                                   f"Are you sure you want to delete interface {get_interface_name(current_item.text())}?",
-                                                   QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-                                                   QtWidgets.QMessageBox.StandardButton.No)
+                                                "Confirm deleting",
+                                                f"Are you sure you want to delete {len(selected_items)} interfaces?",
+                                                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                                                QtWidgets.QMessageBox.StandardButton.No)
             if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-                self.listWidget.takeItem(self.listWidget.row(current_item))
-                delete_interface(current_item.text())
+                for item in selected_items:
+                    self.listWidget.takeItem(self.listWidget.row(item))
+                    delete_interface(item.text())
 
                 if self.listWidget.count() == 0:
                     self.plainTextEdit.clear()

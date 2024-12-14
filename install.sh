@@ -4,7 +4,7 @@ set -e
 
 INSTALL_DIR="/opt/wireguard-gui-python"
 REPOSITORY="https://github.com/gary113/wireguard-gui-python.git"
-SYSTEM_REQUIREMENTS="$INSTALL_DIR/system-requirements.txt"
+SYSTEM_REQUIREMENTS_UBUNTU="$INSTALL_DIR/system-requirements-ubuntu.txt"
 SYSTEM_REQUIREMENTS_FEDORA="$INSTALL_DIR/system-requirements-fedora.txt"
 SYSTEM_REQUIREMENTS_ARCH="$INSTALL_DIR/system-requirements-arch.txt"
 USER=$(whoami)
@@ -20,7 +20,7 @@ git clone "$REPOSITORY" "$INSTALL_DIR"
 
 if command -v apt-get; then
     sudo apt-get update
-    sudo apt-get install -y $(cat "$SYSTEM_REQUIREMENTS")
+    sudo apt-get install -y $(cat "$SYSTEM_REQUIREMENTS_UBUNTU")
 elif command -v dnf; then
     sudo dnf install -y $(cat "$SYSTEM_REQUIREMENTS_FEDORA")
 elif command -v pacman; then

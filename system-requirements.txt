@@ -1,1 +1,0 @@
-wireguard-tools expect moreutils zip unzip python3-pip python3-venv pkexec
