@@ -1,20 +1,23 @@
+from os import _exit, geteuid
+from sys import argv
+
+from PyQt6 import QtWidgets
+
+from views.main import Ui_MainView
+
 if __name__ == "__main__":
-    import os
-    import sys
-
-    from PyQt6 import QtWidgets
-
-    from views.main_window import Ui_MainWindow
-
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtWidgets.QApplication(argv)
     app.setApplicationName("wgp")
 
-    if os.geteuid() != 0:
-        QtWidgets.QMessageBox(
+    if geteuid() != 0:
+        return_code = QtWidgets.QMessageBox(
             QtWidgets.QMessageBox.Icon.Critical, "Error", "You need root privileges"
         ).exec()
-        exit()
+
+        _exit(return_code)
     else:
-        ui = Ui_MainWindow()
+        ui = Ui_MainView()
         ui.show()
-        app.exec()
+        return_code = app.exec()
+
+        _exit(return_code)

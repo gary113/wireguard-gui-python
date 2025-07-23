@@ -1,16 +1,17 @@
 ### GENERATED CODE - CLASS ###
 
 from functools import partial
+from os import _exit
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from utility.functions import *
 from utility.log_thread import LogThread
-from views.edit_window import Ui_EditWindow
-from views.new_window import Ui_NewWindow
+from views.edit import Ui_EditView
+from views.new import Ui_NewView
 
 
-class Ui_MainWindow(QtWidgets.QMainWindow):
+class Ui_MainView(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi()
@@ -187,13 +188,13 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.update_tray_menu()
 
         self.tray_menu_show = QtGui.QAction("Show")
-        self.tray_menu_show.triggered.connect(self.show_window)
+        self.tray_menu_show.triggered.connect(self.show)
         self.tray_menu_show.setIcon(
             QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/show-icon.png")
         )
 
         self.tray_menu_quit = QtGui.QAction("Quit")
-        self.tray_menu_quit.triggered.connect(exit)
+        self.tray_menu_quit.triggered.connect(_exit)
         self.tray_menu_quit.setIcon(
             QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/quit-icon.png")
         )
@@ -265,11 +266,6 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         )
 
         self.statusbar.showMessage(self.version)
-
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.update_all)
-        self.timer.setInterval(UPDATE_INTERVAL)
-        self.timer.start()
 
         ### END CUSTOM CODE - CLASS ###
 
@@ -452,14 +448,14 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         if event.key() == QtCore.Qt.Key.Key_Escape:
             self.listWidget.clearSelection()
 
-    def closeEvent(self, event):
-        self.logs_thread.stop()
-        self.logs_thread.wait()
+    def changeEvent(self, event):
+        if event.type() == QtCore.QEvent.Type.WindowStateChange:
+            if self.windowState() & QtCore.Qt.WindowState.WindowMinimized:
+                self.hide()
+            elif self.windowState() & QtCore.Qt.WindowState.WindowNoState:
+                self.show()
 
-        event.accept()
-
-        # event.ignore()
-        # self.hide()
+        super().changeEvent(event)
 
     # END EVENTS #
 
@@ -487,7 +483,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         if current_item != None:
             current_item = current_item.text()
-            edit_window = Ui_EditWindow(current_item)
+            edit_window = Ui_EditView(current_item)
             old_config = get_config_file_content(current_item)["full_content"]
 
             if edit_window.exec() == QtWidgets.QDialog.DialogCode.Accepted:
@@ -583,7 +579,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             ).exec()
 
     def new_interface_option(self):
-        new_window = Ui_NewWindow()
+        new_window = Ui_NewView()
 
         if new_window.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             interface_name = new_window.lineEdit.text()
@@ -610,14 +606,16 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
     # START TRAY ICON #
 
-    def tray_icon_click(self):
-        self.update_tray_menu()
-        menu = self.tray_icon.contextMenu()
-        menu.popup(self.tray_icon.geometry().center())
-
-    def show_window(self):
-        self.show()
-        self.setWindowState(QtCore.Qt.WindowState.WindowNoState)
+    def tray_icon_click(self, reason):
+        if reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show()
+        elif reason == QtWidgets.QSystemTrayIcon.ActivationReason.Context:
+            self.update_tray_menu()
+            menu = self.tray_icon.contextMenu()
+            menu.popup(self.tray_icon.geometry().center())
 
     # END TRAY ICON #
 

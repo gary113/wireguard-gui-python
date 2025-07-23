@@ -3,7 +3,7 @@ from PyQt6 import QtCore, QtWidgets
 from utility.functions import *
 
 
-class Ui_EditWindow(QtWidgets.QDialog):
+class Ui_EditView(QtWidgets.QDialog):
 
     def __init__(self, interface):
         super().__init__()
