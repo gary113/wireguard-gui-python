@@ -1,12 +1,11 @@
 ### GENERATED CODE - CLASS ###
 
-from datetime import datetime
 from functools import partial
-from pathlib import Path
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from utility.functions import *
+from utility.log_thread import LogThread
 from views.edit_window import Ui_EditWindow
 from views.new_window import Ui_NewWindow
 
@@ -106,20 +105,18 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         self.gridLayout.addWidget(self.groupBox_2, 1, 4, 1, 2)
 
-        self.toolButton_5 = QtWidgets.QToolButton(self.tab)
-        self.toolButton_5.setObjectName("toolButton_5")
-        self.toolButton_5.setEnabled(False)
+        self.edit_button = QtWidgets.QToolButton(self.tab)
+        self.edit_button.setObjectName("toolButton_5")
+        self.edit_button.setEnabled(False)
         sizePolicy3 = QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed
         )
         sizePolicy3.setHorizontalStretch(0)
         sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(
-            self.toolButton_5.sizePolicy().hasHeightForWidth()
-        )
-        self.toolButton_5.setSizePolicy(sizePolicy3)
+        sizePolicy3.setHeightForWidth(self.edit_button.sizePolicy().hasHeightForWidth())
+        self.edit_button.setSizePolicy(sizePolicy3)
 
-        self.gridLayout.addWidget(self.toolButton_5, 2, 5, 1, 1)
+        self.gridLayout.addWidget(self.edit_button, 2, 5, 1, 1)
 
         self.toolButton = QtWidgets.QToolButton(self.tab)
         self.toolButton.setObjectName("toolButton")
@@ -131,15 +128,15 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         self.gridLayout.addWidget(self.toolButton, 2, 0, 1, 1)
 
-        self.toolButton_4 = QtWidgets.QToolButton(self.tab)
-        self.toolButton_4.setObjectName("toolButton_4")
-        self.toolButton_4.setEnabled(False)
+        self.turn_activation_button = QtWidgets.QToolButton(self.tab)
+        self.turn_activation_button.setObjectName("toolButton_4")
+        self.turn_activation_button.setEnabled(False)
         sizePolicy3.setHeightForWidth(
-            self.toolButton_4.sizePolicy().hasHeightForWidth()
+            self.turn_activation_button.sizePolicy().hasHeightForWidth()
         )
-        self.toolButton_4.setSizePolicy(sizePolicy3)
+        self.turn_activation_button.setSizePolicy(sizePolicy3)
 
-        self.gridLayout.addWidget(self.toolButton_4, 2, 4, 1, 1)
+        self.gridLayout.addWidget(self.turn_activation_button, 2, 4, 1, 1)
 
         self.tabWidget.addTab(self.tab, "")
         self.tab_2 = QtWidgets.QWidget()
@@ -166,9 +163,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         self.version = "v1.3"
 
-        self.START_TIME = datetime.now()
-        self.log_file = Path(LOG_FILE)
-        self.log_file.touch(exist_ok=True)
+        self.logs_thread = LogThread()
+        self.logs_thread.new_log.connect(self.append_log)
+        self.logs_thread.start()
 
         self.setWindowIcon(
             QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/wireguard-icon.png")
@@ -227,14 +224,14 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.listWidget.setDragEnabled(False)
         self.listWidget.addItems(get_interfaces())
         self.listWidget.itemSelectionChanged.connect(self.list_widget_selected)
-        self.listWidget.doubleClicked.connect(self.toolButton_4.click)
+        self.listWidget.doubleClicked.connect(self.turn_activation_button.click)
         self.update_list()
 
         self.toolButton.clicked.connect(self.add_interface_button_click)
         self.toolButton_2.clicked.connect(self.delete_button_click)
         self.toolButton_3.clicked.connect(self.export_button_click)
-        self.toolButton_4.clicked.connect(self.activate_button_click)
-        self.toolButton_5.clicked.connect(self.edit_button_click)
+        self.turn_activation_button.clicked.connect(self.activate_button_click)
+        self.edit_button.clicked.connect(self.edit_button_click)
 
         self.toolButton.setIcon(
             QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/add-icon.png")
@@ -254,16 +251,16 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.toolButton_3.setToolButtonStyle(
             QtCore.Qt.ToolButtonStyle.ToolButtonTextUnderIcon
         )
-        self.toolButton_4.setIcon(
+        self.turn_activation_button.setIcon(
             QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/up-icon.png")
         )
-        self.toolButton_4.setToolButtonStyle(
+        self.turn_activation_button.setToolButtonStyle(
             QtCore.Qt.ToolButtonStyle.ToolButtonTextUnderIcon
         )
-        self.toolButton_5.setIcon(
+        self.edit_button.setIcon(
             QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/edit-icon.png")
         )
-        self.toolButton_5.setToolButtonStyle(
+        self.edit_button.setToolButtonStyle(
             QtCore.Qt.ToolButtonStyle.ToolButtonTextUnderIcon
         )
 
@@ -282,6 +279,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(self)
 
+    def append_log(self, line):
+        self.textBrowser.append(line)
+
     def retranslateUi(self):
         self.setWindowTitle(
             QtCore.QCoreApplication.translate("MainWindow", "wgp", None)
@@ -293,18 +293,18 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             QtCore.QCoreApplication.translate("MainWindow", "Delete", None)
         )
         self.groupBox.setTitle(
-            QtCore.QCoreApplication.translate("MainWindow", "Interfaz", None)
+            QtCore.QCoreApplication.translate("MainWindow", "Interface", None)
         )
         self.groupBox_2.setTitle(
             QtCore.QCoreApplication.translate("MainWindow", "Peers", None)
         )
-        self.toolButton_5.setText(
+        self.edit_button.setText(
             QtCore.QCoreApplication.translate("MainWindow", "Edit", None)
         )
         self.toolButton.setText(
             QtCore.QCoreApplication.translate("MainWindow", "Add interface", None)
         )
-        self.toolButton_4.setText(
+        self.turn_activation_button.setText(
             QtCore.QCoreApplication.translate(
                 "MainWindow", "Activate / Deactivate", None
             )
@@ -327,8 +327,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     def list_widget_selected(self):
         if self.listWidget.currentItem() != None:
             self.update_interface_info()
-            self.toolButton_4.setEnabled(True)
-            self.toolButton_5.setEnabled(True)
+            self.turn_activation_button.setEnabled(True)
+            self.edit_button.setEnabled(True)
             self.update_active_button()
 
     # END WIDGETS #
@@ -339,14 +339,14 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         current_item = self.listWidget.currentItem()
         if current_item != None:
             current_item = current_item.text()
-            if interface_active(current_item):
-                self.toolButton_4.setText("Deactivate")
-                self.toolButton_4.setIcon(
+            if actived_interface(current_item):
+                self.turn_activation_button.setText("Deactivate")
+                self.turn_activation_button.setIcon(
                     QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/down-icon.png")
                 )
             else:
-                self.toolButton_4.setText("Activate")
-                self.toolButton_4.setIcon(
+                self.turn_activation_button.setText("Activate")
+                self.turn_activation_button.setIcon(
                     QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/up-icon.png")
                 )
 
@@ -357,23 +357,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 current_item = self.listWidget.currentItem()
                 if current_item != None:
                     self.update_active_button()
-                    if interface_active(current_item.text()):
+                    if actived_interface(current_item.text()):
                         self.update_interface_info()
-            elif self.tabWidget.currentIndex() == 1:
-                self.update_log()
-
-    def update_log(self):
-        if self.textBrowser.toPlainText() != "":
-            last_log_line_datetime = get_log_line_datetime(
-                self.textBrowser.toPlainText().splitlines()[-1]
-            )
-        else:
-            last_log_line_datetime = self.START_TIME
-
-        log_file_content = get_log_file_lines(last_log_line_datetime)
-
-        for log_file_line in log_file_content:
-            self.textBrowser.append(log_file_line[:-1])
 
     def update_list(self):
         interfaces_configs = get_interfaces()
@@ -393,7 +378,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             if interface not in interfaces_list_witdget:
                 self.listWidget.insertItem(i, interface)
 
-            if interface_active(interface):
+            if actived_interface(interface):
                 self.listWidget.item(i).setIcon(
                     QtGui.QIcon(
                         f"{PROJECT_DIRECTORY}/resources/icons/activated-icon.png"
@@ -426,7 +411,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 )
                 self.tray_menu.insertSeparator(self.tray_menu.actions()[-2])
 
-            if interface_active(interface):
+            if actived_interface(interface):
                 self.tray_menu_actions_list[i].setIcon(
                     QtGui.QIcon(
                         f"{PROJECT_DIRECTORY}/resources/icons/activated-icon.png"
@@ -443,7 +428,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         current_item = self.listWidget.currentItem()
         if current_item != None:
             current_item = current_item.text()
-            actived = interface_active(current_item)
+            actived = actived_interface(current_item)
 
             self.groupBox.setTitle(f"Interface: {get_interface_name(current_item)}")
 
@@ -468,8 +453,13 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.listWidget.clearSelection()
 
     def closeEvent(self, event):
-        event.ignore()
-        self.hide()
+        self.logs_thread.stop()
+        self.logs_thread.wait()
+
+        event.accept()
+
+        # event.ignore()
+        # self.hide()
 
     # END EVENTS #
 
@@ -481,6 +471,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         if current_item != None:
             current_item = current_item.text()
             turn_interface(current_item)
+
             self.update_active_button()
             self.update_interface_info()
             self.update_list()
@@ -544,9 +535,9 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 if self.listWidget.count() == 0:
                     self.plainTextEdit.clear()
                     self.plainTextEdit_2.clear()
-                    self.toolButton_4.setText("Activate / Deactivate")
-                    self.toolButton_4.setEnabled(False)
-                    self.toolButton_5.setEnabled(False)
+                    self.turn_activation_button.setText("Activate / Deactivate")
+                    self.turn_activation_button.setEnabled(False)
+                    self.edit_button.setEnabled(False)
         else:
             QtWidgets.QMessageBox(
                 QtWidgets.QMessageBox.Icon.Critical,

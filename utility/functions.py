@@ -1,10 +1,9 @@
-from datetime import datetime
-from os import getenv as getenv_
-from os import remove as remove_
+from os import getenv
+from os import remove
 from pathlib import Path
 from subprocess import Popen
-from subprocess import getoutput as getoutput_
-from subprocess import getstatusoutput as getstatusoutput_
+from subprocess import getoutput
+from subprocess import getstatusoutput
 
 from dotenv import load_dotenv
 
@@ -12,15 +11,12 @@ load_dotenv()
 
 WIREGUARD_CONFIGS_FOLDER = "/etc/wireguard"
 PROJECT_DIRECTORY = Path(__file__).parents[1]
-
-DATETIME_FORMAT = getenv_("DATETIME_FORMAT", "%Y-%m-%d %H:%M:%S")
-LOG_FILE = getenv_("LOG_FILE", "/var/log/wgp.log")
-update_interval_value = int(getenv_("UPDATE_INTERVAL", 1))
+update_interval_value = int(getenv("UPDATE_INTERVAL", 1))
 UPDATE_INTERVAL = update_interval_value * 1000 if update_interval_value >= 1 else 1000
 
 
 def get_interfaces():
-    return getoutput_(f"ls {WIREGUARD_CONFIGS_FOLDER} | grep '.conf'").splitlines()
+    return getoutput(f"ls {WIREGUARD_CONFIGS_FOLDER} | grep '.conf'").splitlines()
 
 
 def get_config_file_content(interface: str):
@@ -36,7 +32,7 @@ def get_config_file_content(interface: str):
 
 
 def get_config_active_content(interface: str):
-    content = getoutput_(f"wg show {get_interface_name(interface)}")
+    content = getoutput(f"wg show {get_interface_name(interface)}")
 
     interface_content = content[: content.find("peer:")].strip()
     peers_content = content[content.find("peer:") :].strip()
@@ -55,7 +51,7 @@ def get_specific_config_interface(interface_config: str, config: str, active=Fal
         else:
             privatekey = get_specific_config_interface(interface_config, "privatekey")
             if privatekey != "":
-                return getoutput_(f"echo {privatekey} | wg pubkey")
+                return getoutput(f"echo {privatekey} | wg pubkey")
     else:
         for line in content:
             if config in line.lower():
@@ -67,82 +63,48 @@ def get_interface_name(interface: str):
     return interface[: interface.find(".conf")]
 
 
-def interface_active(interface: str):
-    return getstatusoutput_(f"wg show {get_interface_name(interface)}")[0] == 0
+def actived_interface(interface: str):
+    return getstatusoutput(f"wg show {get_interface_name(interface)}")[0] == 0
 
 
 def interface_exists(interface: str):
-    return getstatusoutput_(f"ls '{WIREGUARD_CONFIGS_FOLDER}/{interface}'")[0] == 0
+    return getstatusoutput(f"ls '{WIREGUARD_CONFIGS_FOLDER}/{interface}'")[0] == 0
 
 
 def turn_interface(interface: str):
-    if interface_active(interface):
+    if actived_interface(interface):
         down_interface(interface)
     else:
         up_interface(interface)
 
 
 def down_interface(interface: str):
-    append_log_line_with_timestamp(
-        f"[##] TURNING OFF INTERFACE {get_interface_name(interface)} START"
-    )
-    append_log_line_without_timestamp(
-        getoutput_(
-            f"unbuffer wg-quick down {get_interface_name(interface)} | ts '{DATETIME_FORMAT} ~'"
-        )
-    )
-    append_log_line_with_timestamp(
-        f"[##] TURNING OFF INTERFACE {get_interface_name(interface)} END"
+    Popen(
+        f"systemctl stop wg-quick@{get_interface_name(interface)}.service",
+        shell=True,
     )
 
 
 def up_interface(interface: str):
-    append_log_line_with_timestamp(
-        f"[##] TURNING ON INTERFACE {get_interface_name(interface)} START"
-    )
-    append_log_line_without_timestamp(
-        getoutput_(
-            f"unbuffer wg-quick up {get_interface_name(interface)} | ts '{DATETIME_FORMAT} ~'"
-        )
-    )
-    append_log_line_with_timestamp(
-        f"[##] TURNING ON INTERFACE {get_interface_name(interface)} END"
+    Popen(
+        f"systemctl start wg-quick@{get_interface_name(interface)}.service",
+        shell=True,
     )
 
-    return interface_active(interface)
+    return actived_interface(interface)
 
 
 def test_interface(interface: str):
-    append_log_line_with_timestamp(
-        f"[###] TESTING INTERFACE {get_interface_name(interface)} START"
-    )
-
-    actived = interface_active(interface)
-
-    if actived:
-        down_interface(interface)
-
     if get_config_file_content(interface)["full_content"].strip() == "":
         valid_interface = False
     else:
         valid_interface = up_interface(interface)
 
-    if not actived and valid_interface:
-        down_interface(interface)
-
-    append_log_line_with_timestamp(
-        f"[###] TESTING INTERFACE {get_interface_name(interface)} END"
-    )
-
     return valid_interface
 
 
 def edit_interface(interface: str, new_name: str, old_config: str, new_config: str):
-    append_log_line_with_timestamp(
-        f"[####] EDITING INTERFACE {get_interface_name(interface)} START"
-    )
-
-    actived = interface_active(interface)
+    actived = actived_interface(interface)
 
     if old_config != new_config:
         write_wireguard_config(interface, new_config)
@@ -162,73 +124,45 @@ def edit_interface(interface: str, new_name: str, old_config: str, new_config: s
             )
             if actived:
                 up_interface(f"{new_name}.conf")
-            append_log_line_with_timestamp(
-                f"[###] COPY INTERFACE {get_interface_name(interface)} => {new_name}"
-            )
+
             delete_interface(interface)
     else:
         write_wireguard_config(interface, old_config)
-
-    append_log_line_with_timestamp(
-        f"[####] EDITING INTERFACE {get_interface_name(interface)} END"
-    )
 
     return valid_interface
 
 
 def delete_interface(interface: str):
-    if interface_active(interface):
+    if actived_interface(interface):
         down_interface(interface)
 
-    remove_(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}")
-
-    append_log_line_with_timestamp(
-        f"[##] DELETED INTERFACE {get_interface_name(interface)}"
-    )
+    remove(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}")
 
 
 def export_interfaces(directory: str):
-    append_log_line_with_timestamp(
-        f"[##] EXPORTING TO {directory}/wireguard_interfaces.zip START"
-    )
-    export_process = getstatusoutput_(
+    export_process = getstatusoutput(
         f"cd '{WIREGUARD_CONFIGS_FOLDER}' && zip -R '{directory}/wireguard_interfaces.zip' . '*.conf'"
-    )
-    append_log_line_with_timestamp(export_process[1])
-    append_log_line_with_timestamp(
-        f"[##] EXPORTING TO {directory}/wireguard_interfaces.zip END"
     )
 
     return export_process[0] == 0
 
 
 def import_interfaces(zip_file: str):
-    zip_name = zip_file.split("/")[-1]
-
-    append_log_line_with_timestamp(f"[##] IMPORTING ZIP {zip_name} START")
-    import_process = getstatusoutput_(
+    import_process = getstatusoutput(
         f"unzip -jo '{zip_file}' -d '{WIREGUARD_CONFIGS_FOLDER}' '*.conf'"
     )
-    append_log_line_with_timestamp(import_process[1])
-    append_log_line_with_timestamp(f"[##] IMPORTING ZIP {zip_name} END")
 
     return import_process[0] == 0
 
 
 def add_interface(interface: str):
-    interface_name = interface.split("/")[-1]
-
-    append_log_line_with_timestamp(f"[##] ADDING INTERFACE {interface_name} START")
-    add_process = getstatusoutput_(f"cp '{interface}' '{WIREGUARD_CONFIGS_FOLDER}'")
-    append_log_line_with_timestamp(add_process[1])
-    append_log_line_with_timestamp(f"[##] ADDING INTERFACE {interface_name} END")
+    add_process = getstatusoutput(f"cp '{interface}' '{WIREGUARD_CONFIGS_FOLDER}'")
 
     return add_process[0] == 0
 
 
 def new_interface(interface_name: str, interface_config: str):
     interface_name = interface_name[:15]
-    append_log_line_with_timestamp(f"[####] CREATING INTERFACE {interface_name} START")
 
     write_wireguard_config(f"{interface_name}.conf", interface_config)
 
@@ -237,56 +171,9 @@ def new_interface(interface_name: str, interface_config: str):
     if not valid_interface:
         delete_interface(f"{interface_name}.conf")
 
-    append_log_line_with_timestamp(f"[####] CREATING INTERFACE {interface_name} END")
-
     return valid_interface
 
 
 def write_wireguard_config(interface: str, config: str):
     with open(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}", "w") as interface_file:
         interface_file.write(config)
-
-
-def get_log_file_lines(start_datetime: datetime):
-    with open(LOG_FILE, "r") as log_file:
-        log_file_lines = log_file.readlines()
-
-    return [
-        log_file_line
-        for log_file_line in log_file_lines
-        if compare_datetimes(log_file_line, start_datetime)
-    ]
-
-
-def get_log_line_datetime(log_line: str):
-    return datetime.strptime(
-        f"{log_line[:log_line.find('~')].strip()}", DATETIME_FORMAT
-    )
-
-
-def compare_datetimes(log_line: str, start_datetime: datetime):
-    try:
-        return (
-            datetime.strptime(
-                f"{log_line[:log_line.find('~')].strip()}", DATETIME_FORMAT
-            )
-            > start_datetime
-        )
-    except:
-        return False
-
-
-def append_log_line_with_timestamp(log_message: str):
-    log_messages = log_message.split("\n")
-
-    with open(LOG_FILE, "a") as log_file:
-        for message in log_messages:
-            log_file.write(f"{datetime.now().strftime(DATETIME_FORMAT)} ~ {message}\n")
-
-
-def append_log_line_without_timestamp(log_message: str):
-    log_messages = log_message.split("\n")
-
-    with open(LOG_FILE, "a") as log_file:
-        for message in log_messages:
-            log_file.write(f"{log_message}\n")
