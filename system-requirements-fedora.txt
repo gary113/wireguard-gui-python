@@ -1,1 +1,1 @@
-wireguard-tools expect moreutils zip unzip python3-devel python3-pip python3-virtualenv zenity
+wireguard-tools zip unzip python3-devel python3-pip python3-virtualenv zenity

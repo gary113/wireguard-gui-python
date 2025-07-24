@@ -231,7 +231,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
         self.toolButton.clicked.connect(self.add_interface_button_click)
         self.toolButton_2.clicked.connect(self.delete_button_click)
         self.toolButton_3.clicked.connect(self.export_button_click)
-        self.turn_activation_button.clicked.connect(self.activate_button_click)
+        self.turn_activation_button.clicked.connect(self.turn_activate_button_click)
         self.edit_button.clicked.connect(self.edit_button_click)
 
         self.toolButton.setIcon(
@@ -266,6 +266,11 @@ class Ui_MainView(QtWidgets.QMainWindow):
         )
 
         self.statusbar.showMessage(self.version)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_all)
+        self.timer.setInterval(UPDATE_INTERVAL)
+        self.timer.start()
 
         ### END CUSTOM CODE - CLASS ###
 
@@ -335,7 +340,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
         current_item = self.listWidget.currentItem()
         if current_item != None:
             current_item = current_item.text()
-            if actived_interface(current_item):
+            if is_actived_interface(current_item):
                 self.turn_activation_button.setText("Deactivate")
                 self.turn_activation_button.setIcon(
                     QtGui.QIcon(f"{PROJECT_DIRECTORY}/resources/icons/down-icon.png")
@@ -351,10 +356,12 @@ class Ui_MainView(QtWidgets.QMainWindow):
             if self.tabWidget.currentIndex() == 0:
                 self.update_list()
                 current_item = self.listWidget.currentItem()
+
                 if current_item != None:
                     self.update_active_button()
-                    if actived_interface(current_item.text()):
-                        self.update_interface_info()
+                    self.update_interface_info()
+
+        self.update_tray_icon_badge()
 
     def update_list(self):
         interfaces_configs = get_interfaces()
@@ -374,7 +381,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
             if interface not in interfaces_list_witdget:
                 self.listWidget.insertItem(i, interface)
 
-            if actived_interface(interface):
+            if is_actived_interface(interface):
                 self.listWidget.item(i).setIcon(
                     QtGui.QIcon(
                         f"{PROJECT_DIRECTORY}/resources/icons/activated-icon.png"
@@ -407,7 +414,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
                 )
                 self.tray_menu.insertSeparator(self.tray_menu.actions()[-2])
 
-            if actived_interface(interface):
+            if is_actived_interface(interface):
                 self.tray_menu_actions_list[i].setIcon(
                     QtGui.QIcon(
                         f"{PROJECT_DIRECTORY}/resources/icons/activated-icon.png"
@@ -422,13 +429,13 @@ class Ui_MainView(QtWidgets.QMainWindow):
 
     def update_interface_info(self):
         current_item = self.listWidget.currentItem()
+
         if current_item != None:
             current_item = current_item.text()
-            actived = actived_interface(current_item)
-
+            is_actived = is_actived_interface(current_item)
             self.groupBox.setTitle(f"Interface: {get_interface_name(current_item)}")
 
-            if actived:
+            if is_actived:
                 full_interface_config = get_config_active_content(current_item)
                 interface_config = full_interface_config["interface_content"]
                 peers_config = full_interface_config["peers_content"]
@@ -461,12 +468,12 @@ class Ui_MainView(QtWidgets.QMainWindow):
 
     # START BUTTONS #
 
-    def activate_button_click(self):
-        current_item = self.listWidget.currentItem()
+    def turn_activate_button_click(self):
+        selected_items = self.listWidget.selectedItems()
 
-        if current_item != None:
-            current_item = current_item.text()
-            turn_interface(current_item)
+        if selected_items:
+            for item in selected_items:
+                turn_interface(item.text())
 
             self.update_active_button()
             self.update_interface_info()
@@ -489,6 +496,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
             if edit_window.exec() == QtWidgets.QDialog.DialogCode.Accepted:
                 new_name = edit_window.lineEdit_2.text()
                 new_config = edit_window.plainTextEdit.toPlainText()
+
                 if edit_interface(current_item, new_name, old_config, new_config):
                     if new_name != get_interface_name(current_item):
                         self.update_list()
@@ -514,6 +522,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
 
     def delete_button_click(self):
         selected_items = self.listWidget.selectedItems()
+
         if selected_items:
             reply = QtWidgets.QMessageBox.question(
                 self,
@@ -607,7 +616,10 @@ class Ui_MainView(QtWidgets.QMainWindow):
     # START TRAY ICON #
 
     def tray_icon_click(self, reason):
-        if reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger:
+        if (
+            reason == QtWidgets.QSystemTrayIcon.ActivationReason.Trigger
+            or reason == QtWidgets.QSystemTrayIcon.ActivationReason.DoubleClick
+        ):
             if self.isVisible():
                 self.hide()
             else:
@@ -618,6 +630,44 @@ class Ui_MainView(QtWidgets.QMainWindow):
             menu.popup(self.tray_icon.geometry().center())
 
     # END TRAY ICON #
+
+    def update_tray_icon_badge(self):
+        active_count = count_active_interfaces()
+
+        if active_count > 0:
+            base_icon = QtGui.QIcon(
+                f"{PROJECT_DIRECTORY}/resources/icons/wireguard-icon.png"
+            )
+
+            pixmap = base_icon.pixmap(32, 32)
+            painter = QtGui.QPainter(pixmap)
+            painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+
+            font = QtGui.QFont()
+            font.setBold(True)
+            font.setPointSize(8)
+            painter.setFont(font)
+
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0)))
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255), 1))
+
+            badge_size = 16
+            badge_x = pixmap.width() - badge_size - 2
+            badge_y = 2
+            painter.drawEllipse(badge_x, badge_y, badge_size, badge_size)
+
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 255, 255)))
+            text_rect = QtCore.QRect(badge_x, badge_y, badge_size, badge_size)
+            painter.drawText(
+                text_rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(active_count)
+            )
+
+            painter.end()
+
+            icon_with_badge = QtGui.QIcon(pixmap)
+            self.tray_icon.setIcon(icon_with_badge)
+        else:
+            self.tray_icon.setIcon(self.windowIcon())
 
 
 ### END CUSTOM CODE - METHODS ###

@@ -1,18 +1,12 @@
-from os import getenv
 from os import remove
 from pathlib import Path
-from subprocess import Popen
-from subprocess import getoutput
-from subprocess import getstatusoutput
+from subprocess import PIPE, Popen, getoutput, getstatusoutput
 
-from dotenv import load_dotenv
-
-load_dotenv()
+from wgconfig import WGConfig
 
 WIREGUARD_CONFIGS_FOLDER = "/etc/wireguard"
 PROJECT_DIRECTORY = Path(__file__).parents[1]
-update_interval_value = int(getenv("UPDATE_INTERVAL", 1))
-UPDATE_INTERVAL = update_interval_value * 1000 if update_interval_value >= 1 else 1000
+UPDATE_INTERVAL = 1000
 
 
 def get_interfaces():
@@ -24,6 +18,7 @@ def get_config_file_content(interface: str):
         content = config_file.read()
     interface_content = content[: content.find("[Peer]")].strip()
     peers_content = content[content.find("[Peer]") :].strip()
+
     return {
         "full_content": content,
         "interface_content": interface_content,
@@ -59,73 +54,151 @@ def get_specific_config_interface(interface_config: str, config: str, active=Fal
     return ""
 
 
-def get_interface_name(interface: str):
+def get_interface_name(interface: str) -> str:
     return interface[: interface.find(".conf")]
 
 
-def actived_interface(interface: str):
+def is_actived_interface(interface: str) -> bool:
     return getstatusoutput(f"wg show {get_interface_name(interface)}")[0] == 0
 
 
-def interface_exists(interface: str):
+def is_systemd_actived_interface(interface: str) -> bool:
+    return (
+        getstatusoutput(
+            f"systemctl is-active wg-quick@{get_interface_name(interface)}.service"
+        )[0]
+        == 0
+    )
+
+
+def is_systemd_enabled_interface(interface: str) -> bool:
+    return (
+        getstatusoutput(
+            f"systemctl is-enabled wg-quick@{get_interface_name(interface)}.service"
+        )[0]
+        == 0
+    )
+
+
+def count_active_interfaces():
+    interfaces = get_interfaces()
+    active_count = 0
+    for interface in interfaces:
+        if is_actived_interface(interface):
+            active_count += 1
+    return active_count
+
+
+def interface_exists(interface: str) -> bool:
     return getstatusoutput(f"ls '{WIREGUARD_CONFIGS_FOLDER}/{interface}'")[0] == 0
 
 
 def turn_interface(interface: str):
-    if actived_interface(interface):
-        down_interface(interface)
+    if is_actived_interface(interface):
+        stop_interface(interface)
     else:
-        up_interface(interface)
+        start_interface(interface)
 
 
-def down_interface(interface: str):
-    Popen(
-        f"systemctl stop wg-quick@{get_interface_name(interface)}.service",
-        shell=True,
-    )
+def stop_interface(interface: str):
+    if is_systemd_actived_interface(interface):
+        Popen(
+            f"systemctl stop wg-quick@{get_interface_name(interface)}.service",
+            shell=True,
+        )
+
+        if is_systemd_enabled_interface(interface):
+            Popen(
+                f"systemctl disable wg-quick@{get_interface_name(interface)}.service",
+                shell=True,
+            )
+    else:
+        Popen(
+            f"wg-quick down {get_interface_name(interface)}",
+            shell=True,
+        )
 
 
-def up_interface(interface: str):
+def start_interface(interface: str) -> bool:
     Popen(
         f"systemctl start wg-quick@{get_interface_name(interface)}.service",
         shell=True,
+        stdout=PIPE,
+        stderr=PIPE,
     )
 
-    return actived_interface(interface)
+    is_actived = is_actived_interface(interface)
+
+    if is_actived:
+        Popen(
+            f"systemctl enable wg-quick@{get_interface_name(interface)}.service",
+            shell=True,
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+
+    return is_actived
 
 
-def test_interface(interface: str):
-    if get_config_file_content(interface)["full_content"].strip() == "":
+def restart_interface(interface: str) -> bool:
+    if is_systemd_actived_interface(interface):
+        Popen(
+            f"systemctl restart wg-quick@{get_interface_name(interface)}.service",
+            shell=True,
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+
+        is_actived = is_actived_interface(interface)
+    else:
+        Popen(
+            f"wg-quick down {get_interface_name(interface)}",
+            shell=True,
+        )
+
+        is_actived = start_interface(interface)
+
+    return is_actived
+
+
+def is_valid_interface(interface: str):
+    wc = WGConfig(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}")
+    wc.read_file()
+
+    if not wc.get_interface():
         valid_interface = False
     else:
-        valid_interface = up_interface(interface)
+        valid_interface = True
 
     return valid_interface
 
 
 def edit_interface(interface: str, new_name: str, old_config: str, new_config: str):
-    actived = actived_interface(interface)
+    is_actived = is_actived_interface(interface)
+    edited_config = old_config != new_config
 
-    if old_config != new_config:
+    if edited_config:
         write_wireguard_config(interface, new_config)
-        valid_interface = test_interface(interface)
+        valid_interface = is_valid_interface(interface)
     else:
         valid_interface = True
 
     if valid_interface:
-        new_name = new_name[:15]
-        if new_name.strip() != "" and new_name != get_interface_name(interface):
-            if actived:
-                down_interface(interface)
+        new_name = new_name.strip()[:15]
+
+        if new_name != "" and new_name != get_interface_name(interface):
             Popen(
                 f"cp {WIREGUARD_CONFIGS_FOLDER}/{interface} {WIREGUARD_CONFIGS_FOLDER}/{new_name}.conf".split(
                     " "
                 )
             )
-            if actived:
-                up_interface(f"{new_name}.conf")
 
             delete_interface(interface)
+
+            if is_actived:
+                start_interface(f"{new_name}.conf")
+        elif is_actived and edited_config:
+            restart_interface(interface)
     else:
         write_wireguard_config(interface, old_config)
 
@@ -133,8 +206,8 @@ def edit_interface(interface: str, new_name: str, old_config: str, new_config: s
 
 
 def delete_interface(interface: str):
-    if actived_interface(interface):
-        down_interface(interface)
+    if is_actived_interface(interface):
+        stop_interface(interface)
 
     remove(f"{WIREGUARD_CONFIGS_FOLDER}/{interface}")
 
@@ -166,7 +239,7 @@ def new_interface(interface_name: str, interface_config: str):
 
     write_wireguard_config(f"{interface_name}.conf", interface_config)
 
-    valid_interface = test_interface(f"{interface_name}.conf")
+    valid_interface = is_valid_interface(f"{interface_name}.conf")
 
     if not valid_interface:
         delete_interface(f"{interface_name}.conf")
