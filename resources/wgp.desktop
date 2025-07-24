@@ -8,4 +8,4 @@ Path=/opt/wireguard-gui-python/
 StartupNotify=true
 Terminal=false
 Type=Application
-Version=1.0
+Version=1.4

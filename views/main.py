@@ -162,7 +162,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
 
         ### START CUSTOM CODE - CLASS ###
 
-        self.version = "v1.3"
+        self.version = "v1.4"
 
         self.logs_thread = LogThread()
         self.logs_thread.new_log.connect(self.append_log)
