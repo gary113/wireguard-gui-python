@@ -1,6 +1,6 @@
 from os import remove
 from pathlib import Path
-from subprocess import PIPE, Popen, getoutput, getstatusoutput
+from subprocess import PIPE, Popen, getoutput, getstatusoutput, run
 
 from wgconfig import WGConfig
 
@@ -102,25 +102,31 @@ def turn_interface(interface: str):
 
 def stop_interface(interface: str):
     if is_systemd_actived_interface(interface):
-        Popen(
+        run(
             f"systemctl stop wg-quick@{get_interface_name(interface)}.service",
             shell=True,
+            stdout=PIPE,
+            stderr=PIPE,
         )
 
         if is_systemd_enabled_interface(interface):
             Popen(
                 f"systemctl disable wg-quick@{get_interface_name(interface)}.service",
                 shell=True,
+                stdout=PIPE,
+                stderr=PIPE,
             )
     else:
         Popen(
             f"wg-quick down {get_interface_name(interface)}",
             shell=True,
+            stdout=PIPE,
+            stderr=PIPE,
         )
 
 
 def start_interface(interface: str) -> bool:
-    Popen(
+    run(
         f"systemctl start wg-quick@{get_interface_name(interface)}.service",
         shell=True,
         stdout=PIPE,
@@ -142,7 +148,7 @@ def start_interface(interface: str) -> bool:
 
 def restart_interface(interface: str) -> bool:
     if is_systemd_actived_interface(interface):
-        Popen(
+        run(
             f"systemctl restart wg-quick@{get_interface_name(interface)}.service",
             shell=True,
             stdout=PIPE,
@@ -154,6 +160,8 @@ def restart_interface(interface: str) -> bool:
         Popen(
             f"wg-quick down {get_interface_name(interface)}",
             shell=True,
+            stdout=PIPE,
+            stderr=PIPE,
         )
 
         is_actived = start_interface(interface)
@@ -187,11 +195,15 @@ def edit_interface(interface: str, new_name: str, old_config: str, new_config: s
         new_name = new_name.strip()[:15]
 
         if new_name != "" and new_name != get_interface_name(interface):
-            Popen(
-                f"cp {WIREGUARD_CONFIGS_FOLDER}/{interface} {WIREGUARD_CONFIGS_FOLDER}/{new_name}.conf".split(
-                    " "
-                )
+            copy_process = run(
+                f"cp {WIREGUARD_CONFIGS_FOLDER}/{interface} {WIREGUARD_CONFIGS_FOLDER}/{new_name}.conf",
+                shell=True,
+                stdout=PIPE,
+                stderr=PIPE,
             )
+
+            if copy_process.returncode != 0:
+                return False
 
             delete_interface(interface)
 
