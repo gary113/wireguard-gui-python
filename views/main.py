@@ -5,6 +5,7 @@ from os import _exit
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
+from utility import language
 from utility.functions import *
 from utility.log_thread import LogThread
 from views.edit import Ui_EditView
@@ -224,6 +225,26 @@ class Ui_MainView(QtWidgets.QMainWindow):
 
         self.options_menu.addAction(self.options_menu_new_interface)
         self.options_menu.addAction(self.options_menu_import_interfaces)
+
+        self.language_menu = self.options_menu.addMenu(self.tr("Language"))
+        self.language_menu_action = self.language_menu.menuAction()
+        self.language_actions = {}
+        self.language_group = QtGui.QActionGroup(self)
+        self.language_group.setExclusive(True)
+
+        for language_code, language_name in language.language_choices():
+            if language_code == language.SYSTEM_LANGUAGE:
+                language_name = self.tr("System default")
+
+            language_action = self.language_menu.addAction(language_name)
+            language_action.setCheckable(True)
+            language_action.setData(language_code)
+            self.language_group.addAction(language_action)
+            self.language_actions[language_code] = language_action
+
+        self.language_actions[language.get_saved_language()].setChecked(True)
+        self.language_menu.triggered.connect(self.change_language)
+
         self.toolButton.setMenu(self.options_menu)
 
         self.listWidget.setDragEnabled(False)
@@ -307,7 +328,7 @@ class Ui_MainView(QtWidgets.QMainWindow):
             QtCore.QCoreApplication.translate("MainWindow", "Edit", None)
         )
         self.toolButton.setText(
-            QtCore.QCoreApplication.translate("MainWindow", "Add interface", None)
+            QtCore.QCoreApplication.translate("MainWindow", "Set I/F|Lang.", None)
         )
         self.turn_activation_button.setText(
             QtCore.QCoreApplication.translate(
@@ -454,6 +475,37 @@ class Ui_MainView(QtWidgets.QMainWindow):
             self.plainTextEdit_2.setPlainText(peers_config)
 
     # END UPDATES #
+
+    # START LANGUAGE #
+
+    def change_language(self, action):
+        language_preference = action.data()
+
+        language.save_language(language_preference)
+        language.install_language(
+            QtWidgets.QApplication.instance(), language_preference
+        )
+        self.retranslate()
+
+    def retranslate(self):
+        self.retranslateUi()
+
+        # Texts that are not handled by the generated retranslateUi().
+        self.tray_menu_show.setText(self.tr("Show"))
+        self.tray_menu_quit.setText(self.tr("Quit"))
+        self.options_menu_new_interface.setText(self.tr("New interface"))
+        self.options_menu_import_interfaces.setText(self.tr("Import interfaces"))
+        self.language_menu_action.setText(self.tr("Language"))
+        self.language_actions[language.SYSTEM_LANGUAGE].setText(
+            self.tr("System default")
+        )
+        self.statusbar.showMessage(self.version)
+
+        if self.listWidget.currentItem() is not None:
+            self.update_interface_info()
+            self.update_active_button()
+
+    # END LANGUAGE #
 
     # START EVENTS #
 
