@@ -1,22 +1,17 @@
 from os import _exit, geteuid
 from sys import argv
 
-from PyQt6.QtCore import QTranslator
 from PyQt6 import QtWidgets
 
+from utility import language
 from views.main import Ui_MainView
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(argv)
     app.setApplicationName("wgp")
 
-    #Load the corresponding language support file
-    translatorsys = QTranslator(app)
-    translator = QTranslator(app)
-    translatorsys.load("translations/qt_zh_CN.qm")
-    translator.load("translations/wgp_zh_CN.qm")
-    app.installTranslator(translatorsys)
-    app.installTranslator(translator)
+    #Load the language selected by the user (system language by default)
+    language.install_language(app, language.get_saved_language())
 
     if geteuid() != 0:
         err = QtWidgets.QApplication.translate("wgp", "Error")
